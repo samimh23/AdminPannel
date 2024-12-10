@@ -1,7 +1,9 @@
 // lib/screens/main_layout.dart
+import 'package:admindash/screens/product_list_screen.dart';
 import 'package:admindash/screens/users_screen.dart';
 import 'package:flutter/material.dart';
 
+import 'Reclamation_Screen.dart';
 import 'dashboard_screen.dart';
 
 class MainLayout extends StatefulWidget {
@@ -44,6 +46,15 @@ class _MainLayoutState extends State<MainLayout> {
                 label: Text('Users'),
                 padding: EdgeInsets.all(16),
               ),
+              NavigationRailDestination(
+                icon: Icon(Icons.shop),
+                label: Text('MarketPlace'),
+                padding: EdgeInsets.all(16),
+              ),NavigationRailDestination(
+                icon: Icon(Icons.receipt),
+                label: Text('Reclamations'),
+                padding: EdgeInsets.all(16),
+              )
             ],
           ),
           // Vertical divider
@@ -55,6 +66,8 @@ class _MainLayoutState extends State<MainLayout> {
               children: [
                 DashboardScreen(token: widget.token),
                 UsersScreen(token: widget.token),
+                ProductListScreen(),
+                ReclamationScreen(),
               ],
             ),
           ),

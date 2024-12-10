@@ -1,4 +1,3 @@
-// lib/models/dashboard_stats.dart
 class DashboardStats {
   final UserStats userStats;
   final RoleDistribution roleDistribution;

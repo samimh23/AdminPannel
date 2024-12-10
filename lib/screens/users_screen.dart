@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:intl/intl.dart';
 import '../models/user.dart';
 import '../services/api_service.dart';
 
@@ -16,11 +17,9 @@ class _UsersScreenState extends State<UsersScreen> {
   final _searchController = TextEditingController();
   final _scrollController = ScrollController();
   List<User> _users = [];
-  bool _isLoading = false;
   bool _isLoadingMore = false;
+  bool _isLoading = false;
   String? _error;
-  int _currentPage = 1;
-  int _totalPages = 1;
   String _selectedRole = '';
   String _sortBy = 'createdAt';
   String _sortOrder = 'desc';
@@ -29,264 +28,147 @@ class _UsersScreenState extends State<UsersScreen> {
   void initState() {
     super.initState();
     _loadUsers();
-    _scrollController.addListener(_onScroll);
   }
-  // In _UsersScreenState class
-  Future<void> _updateUserRole(String userId, String currentRole) async {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    // Store current users state for rollback
-    final currentUsers = List<User>.from(_users);
-
-    String? newRole = await showDialog<String>(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text('Update User Role'),
-          content: DropdownButton<String>(
-            value: currentRole,
-            items: [
-              DropdownMenuItem(value: 'USER', child: Text('User')),
-              DropdownMenuItem(value: 'ADMIN', child: Text('Admin')),
-              DropdownMenuItem(value: 'SUPER_ADMIN', child: Text('Super Admin')),
-            ],
-            onChanged: (String? value) {
-              Navigator.of(context).pop(value);
-            },
-          ),
-          actions: [
-            TextButton(
-              child: Text('Cancel'),
-              onPressed: () => Navigator.of(context).pop(),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (newRole != null && newRole != currentRole) {
-      try {
-        // Optimistic update
-        final userIndex = _users.indexWhere((user) => user.id == userId);
-        if (userIndex != -1) {
-          setState(() {
-            _users[userIndex] = _users[userIndex].copyWith(role: newRole);
-          });
-        }
-
-        // Make API call
-        await ApiService().updateUserRole(widget.token, userId, newRole);
-
-        // Show success message
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('User role updated successfully'),
-              backgroundColor: Colors.green,
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-        }
-
-        // Reload users to ensure consistency
-        await _loadUsers();
-      } catch (e) {
-        // Revert optimistic update
-        setState(() {
-          _users = currentUsers;
-        });
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Failed to update user role: ${e.toString()}'),
-              backgroundColor: colorScheme.error,
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-        }
-      }
-    }
-  }
-
-  // Existing methods like _loadUsers, _toggleUserStatus remain the same
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme
-        .of(context)
-        .colorScheme;
-    final textTheme = Theme
-        .of(context)
-        .textTheme;
-
-    return Scaffold(
-      backgroundColor: colorScheme.surface,
-      body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildHeader(colorScheme, textTheme),
-            _buildFilters(colorScheme),
-            Expanded(
-              child: _error != null
-                  ? Center(
-                child: Text(
-                  _error!,
-                  style: textTheme.titleMedium?.copyWith(
-                    color: colorScheme.error,
-                  ),
-                ),
-              )
-                  : _buildUsersList(colorScheme, textTheme),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHeader(ColorScheme colorScheme, TextTheme textTheme) {
     return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: colorScheme.surface,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black12,
-            blurRadius: 4,
-            offset: Offset(0, 2),
-          ),
-        ],
-      ),
+      padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Users Management',
-            style: textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: colorScheme.onSurface,
-            ),
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _searchController,
-            decoration: InputDecoration(
-              hintText: 'Search users...',
-              prefixIcon: Icon(Icons.search, color: colorScheme.primary),
-              filled: true,
-              fillColor: colorScheme.surfaceVariant.withOpacity(0.5),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide.none,
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: colorScheme.primary, width: 2),
+          _buildHeader(),
+          const SizedBox(height: 32),
+          Expanded(
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildFilters(),
+                  const SizedBox(height: 24),
+                  _buildUsersList(),
+                ],
               ),
             ),
-            onChanged: (_) => _loadUsers(),
           ),
         ],
       ),
-    ).animate().fadeIn(duration: 300.ms).slideY(begin: -0.1, end: 0);
+    );
   }
 
-  Widget _buildFilters(ColorScheme colorScheme) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Wrap(
-        spacing: 16,
-        runSpacing: 8,
-        alignment: WrapAlignment.start,
-        crossAxisAlignment: WrapCrossAlignment.center,
+  Widget _buildHeader() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
         children: [
-          _buildRoleDropdown(colorScheme),
-          _buildSortByDropdown(colorScheme),
-          _buildSortOrderButton(colorScheme),
-          _buildPaginationInfo(colorScheme),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Users Management',
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Comprehensive user overview and management',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Colors.grey[600],
+                ),
+              ),
+            ],
+          ),
+          const Spacer(),
+          ElevatedButton.icon(
+            onPressed: _loadUsers,
+            icon: const Icon(Icons.refresh),
+            label: const Text('Refresh Users'),
+          ),
         ],
       ),
-    ).animate().fadeIn(duration: 300.ms).slideX(begin: -0.1, end: 0);
+    );
   }
 
-  Widget _buildRoleDropdown(ColorScheme colorScheme) {
+  Widget _buildFilters() {
     return Container(
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceVariant.withOpacity(0.5),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-          value: _selectedRole,
-          dropdownColor: colorScheme.surface,
-          items: [
-            DropdownMenuItem(value: '',
-                child: Text('All Roles',
-                    style: TextStyle(color: colorScheme.onSurface))),
-            DropdownMenuItem(value: 'admin',
-                child: Text(
-                    'Admin', style: TextStyle(color: colorScheme.onSurface))),
-            DropdownMenuItem(value: 'user',
-                child: Text(
-                    'User', style: TextStyle(color: colorScheme.onSurface))),
-          ],
-          onChanged: (value) {
-            setState(() {
-              _selectedRole = value ?? '';
-            });
-            _loadUsers();
-          },
-        ),
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      child: Row(
+        children: [
+          Expanded(
+            flex: 2,
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                hintText: 'Search users by name, email...',
+                prefixIcon: const Icon(Icons.search),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              onChanged: (_) => _loadUsers(),
+            ),
+          ),
+          const SizedBox(width: 16),
+          _buildRoleDropdown(),
+          const SizedBox(width: 16),
+          _buildSortByDropdown(),
+          const SizedBox(width: 16),
+          _buildSortOrderButton(),
+        ],
       ),
     );
   }
 
-  Widget _buildSortByDropdown(ColorScheme colorScheme) {
-    return Container(
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceVariant.withOpacity(0.5),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-          value: _sortBy,
-          dropdownColor: colorScheme.surface,
-          items: [
-            DropdownMenuItem(value: 'createdAt',
-                child: Text(
-                    'Date', style: TextStyle(color: colorScheme.onSurface))),
-            DropdownMenuItem(value: 'name',
-                child: Text(
-                    'Name', style: TextStyle(color: colorScheme.onSurface))),
-            DropdownMenuItem(value: 'email',
-                child: Text(
-                    'Email', style: TextStyle(color: colorScheme.onSurface))),
-          ],
-          onChanged: (value) {
-            setState(() {
-              _sortBy = value ?? 'createdAt';
-            });
-            _loadUsers();
-          },
-        ),
-      ),
+  Widget _buildRoleDropdown() {
+    return DropdownButton<String>(
+      value: _selectedRole,
+      hint: const Text('All Roles'),
+      items: [
+        const DropdownMenuItem(value: '', child: Text('All Roles')),
+        const DropdownMenuItem(value: 'admin', child: Text('Admin')),
+        const DropdownMenuItem(value: 'user', child: Text('User')),
+      ],
+      onChanged: (value) {
+        setState(() {
+          _selectedRole = value ?? '';
+        });
+        _loadUsers();
+      },
     );
   }
 
-  Widget _buildSortOrderButton(ColorScheme colorScheme) {
+  Widget _buildSortByDropdown() {
+    return DropdownButton<String>(
+      value: _sortBy,
+      items: [
+        const DropdownMenuItem(value: 'createdAt', child: Text('Date')),
+        const DropdownMenuItem(value: 'name', child: Text('Name')),
+        const DropdownMenuItem(value: 'email', child: Text('Email')),
+      ],
+      onChanged: (value) {
+        setState(() {
+          _sortBy = value ?? 'createdAt';
+        });
+        _loadUsers();
+      },
+    );
+  }
+
+  Widget _buildSortOrderButton() {
     return IconButton(
-      icon: Icon(
-        _sortOrder == 'asc' ? Icons.arrow_upward : Icons.arrow_downward,
-        color: colorScheme.primary,
-      ),
-      style: IconButton.styleFrom(
-        backgroundColor: colorScheme.surfaceVariant.withOpacity(0.5),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      ),
+      icon: Icon(_sortOrder == 'asc' ? Icons.arrow_upward : Icons.arrow_downward),
       onPressed: () {
         setState(() {
           _sortOrder = _sortOrder == 'asc' ? 'desc' : 'asc';
@@ -296,120 +178,183 @@ class _UsersScreenState extends State<UsersScreen> {
     );
   }
 
-  Widget _buildPaginationInfo(ColorScheme colorScheme) {
-    return Text(
-      'Page $_currentPage of $_totalPages',
-      style: TextStyle(
-        color: colorScheme.onSurfaceVariant,
-        fontWeight: FontWeight.w500,
-      ),
-    );
-  }
+  Widget _buildUsersList() {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
-  Widget _buildUsersList(ColorScheme colorScheme, TextTheme textTheme) {
-    return RefreshIndicator(
-      onRefresh: () => _loadUsers(),
-      child: ListView(
-        controller: _scrollController,
-        physics: const AlwaysScrollableScrollPhysics(),
-        children: [
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: DataTable(
-              headingRowColor: MaterialStateProperty.resolveWith<Color?>(
-                    (Set<MaterialState> states) =>
-                    colorScheme.surfaceVariant.withOpacity(0.5),
-              ),
-              columns: [
-                _buildDataColumn('Name', colorScheme),
-                _buildDataColumn('Email', colorScheme),
-                _buildDataColumn('Role', colorScheme),
-                _buildDataColumn('Status', colorScheme),
-                _buildDataColumn('Actions', colorScheme),
-              ],
-              rows: _users.map((user) {
-                return DataRow(
-                  cells: [
-                    DataCell(Text(user.name, style: textTheme.bodyMedium)),
-                    DataCell(Text(user.email, style: textTheme.bodyMedium)),
-                    DataCell(Text(user.role, style: textTheme.bodyMedium)),
-                    DataCell(
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: user.isActive ? Colors.green[50] : Colors
-                              .red[50],
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          user.isActive ? 'Active' : 'Inactive',
-                          style: TextStyle(
-                            color: user.isActive ? Colors.green[900] : Colors
-                                .red[900],
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-                    DataCell(
-                      Switch(
-                        value: user.isActive,
-                        activeColor: colorScheme.primary,
-                        onChanged: (bool value) {
-                          _toggleUserStatus(user.id, value);
-                        },
-                      ),
-                    ),
-                  ],
-                );
-              }).toList(),
+    if (_error != null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text('Error loading users', style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: _loadUsers,
+              child: const Text('Retry'),
             ),
-          ),
-          if (_isLoadingMore)
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: CircularProgressIndicator(color: colorScheme.primary),
+          ],
+        ),
+      );
+    }
+
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'User List',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 16),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: DataTable(
+                columnSpacing: 40,
+                columns: [
+                  _buildDataColumn('ID'),
+                  _buildDataColumn('Name'),
+                  _buildDataColumn('Email'),
+                  _buildDataColumn('Role'),
+                  _buildDataColumn('Status'),
+                  _buildDataColumn('Joined Date'),
+                  _buildDataColumn('Last Login'),
+                  _buildDataColumn('Actions'),
+                ],
+                rows: _users.map((user) => _buildUserRow(user)).toList(),
               ),
             ),
-        ],
-      ),
-    ).animate().fadeIn(duration: 300.ms);
-  }
-
-  DataColumn _buildDataColumn(String label, ColorScheme colorScheme) {
-    return DataColumn(
-      label: Text(
-        label,
-        style: TextStyle(
-          color: colorScheme.onSurfaceVariant,
-          fontWeight: FontWeight.bold,
+            if (_users.isEmpty)
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Text(
+                    'No users found',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ),
+              ),
+          ],
         ),
       ),
     );
   }
 
-// Existing dispose and other methods remain the same
+  DataColumn _buildDataColumn(String label) {
+    return DataColumn(
+      label: Text(
+        label,
+        style: const TextStyle(fontWeight: FontWeight.bold),
+      ),
+    );
+  }
 
+  DataRow _buildUserRow(User user) {
+    return DataRow(
+      cells: [
+        DataCell(Text(user.id.substring(0, 8))), // Truncated ID
+        DataCell(Text(user.name)),
+        DataCell(Text(user.email)),
+        DataCell(
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: _getRoleColor(user.role),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              user.role.capitalize(),
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ),
+        DataCell(
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: user.isActive ? Colors.green[50] : Colors.red[50],
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              user.isActive ? 'Active' : 'Inactive',
+              style: TextStyle(
+                color: user.isActive ? Colors.green[900] : Colors.red[900],
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ),
+        DataCell(Text(_formatDate(user.createdAt))),
+        DataCell(Text("okey")),
+        DataCell(
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                icon: Icon(
+                  user.isActive ? Icons.check_circle : Icons.cancel,
+                  color: user.isActive ? Colors.green : Colors.red,
+                ),
+                onPressed: () => _toggleUserStatus(user.id, !user.isActive),
+              ),
+              IconButton(
+                icon: const Icon(Icons.edit, color: Colors.blue),
+                onPressed: () => _editUser(user),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
 
-  Future<void> _loadUsers({bool reset = true}) async {
+  Color _getRoleColor(String role) {
+    switch (role.toLowerCase()) {
+      case 'admin':
+        return Colors.red;
+      case 'superadmin':
+        return Colors.deepPurple;
+      default:
+        return Colors.blue;
+    }
+  }
+
+  String _formatDate(DateTime? date) {
+    return date == null
+        ? 'N/A'
+        : DateFormat('MMM d, yyyy').format(date);
+  }
+
+  void _editUser(User user) {
+    // Placeholder for user edit functionality
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Edit functionality for ${user.name} coming soon'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  Future<void> _loadUsers() async {
     if (_isLoading) return;
 
     setState(() {
       _isLoading = true;
-      if (reset) {
-        _users = [];
-        _currentPage = 1;
-      }
+      _users = [];
       _error = null;
     });
 
     try {
       final response = await ApiService().getUsers(
         token: widget.token,
-        page: _currentPage,
-        limit: 10,
         search: _searchController.text,
         role: _selectedRole,
         sortBy: _sortBy,
@@ -417,12 +362,7 @@ class _UsersScreenState extends State<UsersScreen> {
       );
 
       setState(() {
-        if (reset) {
-          _users = response.data;
-        } else {
-          _users.addAll(response.data);
-        }
-        _totalPages = response.meta.totalPages;
+        _users = response;
         _isLoading = false;
       });
     } catch (e) {
@@ -431,14 +371,10 @@ class _UsersScreenState extends State<UsersScreen> {
         _isLoading = false;
       });
 
-      // Show error snackbar
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error: ${e.toString()}'),
-          backgroundColor: Theme
-              .of(context)
-              .colorScheme
-              .error,
+          backgroundColor: Theme.of(context).colorScheme.error,
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -446,7 +382,6 @@ class _UsersScreenState extends State<UsersScreen> {
   }
 
   Future<void> _toggleUserStatus(String userId, bool newStatus) async {
-    // Optimistic update for better UX
     final currentUsers = List<User>.from(_users);
     final userIndex = _users.indexWhere((user) => user.id == userId);
 
@@ -459,18 +394,16 @@ class _UsersScreenState extends State<UsersScreen> {
     try {
       await ApiService().updateUserStatus(widget.token, userId, newStatus);
 
-      // Reload the current page of users to ensure consistency
-      await _loadUsers(reset: true);
+      await _loadUsers();
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+        const SnackBar(
           content: Text('User status updated successfully'),
           backgroundColor: Colors.green,
           behavior: SnackBarBehavior.floating,
         ),
       );
     } catch (e) {
-      // Revert optimistic update if API call fails
       setState(() {
         _users = currentUsers;
       });
@@ -478,52 +411,10 @@ class _UsersScreenState extends State<UsersScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Failed to update user status: ${e.toString()}'),
-          backgroundColor: Theme
-              .of(context)
-              .colorScheme
-              .error,
+          backgroundColor: Theme.of(context).colorScheme.error,
           behavior: SnackBarBehavior.floating,
         ),
       );
-    }
-  }
-
-  Future<void> _loadMoreUsers() async {
-    if (_isLoadingMore || _currentPage >= _totalPages) return;
-
-    setState(() {
-      _isLoadingMore = true;
-    });
-
-    try {
-      _currentPage++;
-      await _loadUsers(reset: false);
-    } catch (e) {
-      // Decrement page back if loading fails
-      _currentPage--;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to load more users: ${e.toString()}'),
-          backgroundColor: Theme
-              .of(context)
-              .colorScheme
-              .error,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    } finally {
-      setState(() {
-        _isLoadingMore = false;
-      });
-    }
-  }
-
-  void _onScroll() {
-    if (_scrollController.position.atEdge) {
-      bool isBottom = _scrollController.position.pixels != 0;
-      if (isBottom && _currentPage < _totalPages) {
-        _loadMoreUsers();
-      }
     }
   }
 
@@ -532,5 +423,11 @@ class _UsersScreenState extends State<UsersScreen> {
     _searchController.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+}
+
+extension StringExtension on String {
+  String capitalize() {
+    return "${this[0].toUpperCase()}${substring(1).toLowerCase()}";
   }
 }

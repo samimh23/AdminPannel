@@ -57,10 +57,31 @@ class ApiService {
 
 
 
- /* Future<List<User>> getUsers(String token) async {
+  Future<List<User>> getUsers({
+    required String token,
+    String? search,
+    String? role,
+    String sortBy = 'createdAt',
+    String sortOrder = 'desc',
+  }) async {
     try {
-      dio.options.headers['authorization'] = 'Bearer $token';
-      final response = await dio.get('$baseUrl/auth/users');
+      final queryParams = {
+        if (search != null && search.isNotEmpty) 'search': search,
+        if (role != null && role.isNotEmpty) 'role': role,
+        'sortBy': sortBy,
+        'sortOrder': sortOrder,
+      };
+
+      final response = await dio.get(
+        '$baseUrl/auth/users',
+        queryParameters: queryParams,
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Content-Type': 'application/json',
+          },
+        ),
+      );
 
       if (response.statusCode == 200) {
         final List<dynamic> usersJson = response.data;
@@ -68,16 +89,10 @@ class ApiService {
       } else {
         throw Exception('Failed to load users');
       }
-    } on DioError catch (e) { // Changed from DioException to DioError
-      print('DioError: ${e.message}');
-      print('DioError response: ${e.response?.data}');
-      throw Exception('Failed to load users: ${e.message}');
     } catch (e) {
-      print('Error: $e');
       throw Exception('Failed to load users: $e');
     }
-  }*/
-
+  }
 // lib/services/api_service.dart
   Future<LoginResponse> login(String email, String password) async {
     try {
@@ -115,48 +130,7 @@ class ApiService {
       throw Exception('Connection failed: ${e.message}');
     }
   }
-  Future<PaginatedResponse<User>> getUsers({
-    required String token,
-    int page = 1,
-    int limit = 10,
-    String? search,
-    String? role,
-    String sortBy = 'createdAt',
-    String sortOrder = 'desc',
-  }) async {
-    try {
-      final queryParams = {
-        'page': page.toString(),
-        'limit': limit.toString(),
-        if (search != null && search.isNotEmpty) 'search': search,
-        if (role != null && role.isNotEmpty) 'role': role,
-        'sortBy': sortBy,
-        'sortOrder': sortOrder,
-      };
 
-      final response = await dio.get(
-        '$baseUrl/auth/users',
-        queryParameters: queryParams,
-        options: Options(
-          headers: {
-            'Authorization': 'Bearer $token',
-            'Content-Type': 'application/json',
-          },
-        ),
-      );
-
-      if (response.statusCode == 200) {
-        return PaginatedResponse.fromJson(
-          response.data,
-              (json) => User.fromJson(json),
-        );
-      } else {
-        throw Exception('Failed to load users');
-      }
-    } catch (e) {
-      throw Exception('Failed to load users: $e');
-    }
-  }
 
   Future<void> updateUserRole(String token, String userId, String newRole) async {
     try {
