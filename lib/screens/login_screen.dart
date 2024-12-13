@@ -1,9 +1,11 @@
 // lib/screens/login_screen.dart
+import 'package:admindash/screens/signup_Screen.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../services/api_service.dart';
 import 'dashboard_screen.dart';
+import 'forgot_password_screen.dart';
 import 'main_layout.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -77,6 +79,27 @@ class _LoginScreenState extends State<LoginScreen> {
                         return null;
                       },
                     ),
+                    SizedBox(height: 8),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => ForgotPasswordScreen(),
+                            ),
+                          );
+                        },
+                        child: Text(
+                          'Forgot Password?',
+                          style: TextStyle(
+                            color: Theme.of(context).primaryColor,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                    ),
                     if (_errorMessage != null)
                       Padding(
                         padding: EdgeInsets.only(top: 16),
@@ -96,6 +119,30 @@ class _LoginScreenState extends State<LoginScreen> {
                             : Text('Login'),
                       ),
                     ),
+                    SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text("Don't have an account?"),
+                        SizedBox(width: 8),
+                        TextButton(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => SignUpScreen(),
+                              ),
+                            );
+                          },
+                          child: Text(
+                            'Sign Up',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ],
                 ),
               ),
@@ -105,6 +152,8 @@ class _LoginScreenState extends State<LoginScreen> {
       ),
     );
   }
+
+// ... rest of your existing methods (_handleLogin, dispose, etc.)
 
 // In your login screen
   void _handleLogin() async {

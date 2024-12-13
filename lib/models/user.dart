@@ -1,3 +1,8 @@
+// Add this where you define your models (e.g., in models/user.dart)
+enum UserRole {
+  admin,
+  user
+}
 class User {
   final String id;
   final String name;
@@ -14,6 +19,7 @@ class User {
     required this.isActive,
     required this.createdAt,  // Add to constructor
   });
+
 
   factory User.fromJson(Map<String, dynamic> json) {
     return User(

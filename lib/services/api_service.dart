@@ -14,7 +14,56 @@ class ApiService {
 
   final dio = Dio(); // or your actual backend URL
 
+// In api_service.dart
+  // In api_service.dart
+  Future<void> signUp(String name, String email, String password) async {
+    try {
+      print('Attempting to signup at: $baseUrl/auth/createadmin');
+      print('With data - Name: $name, Email: $email');
 
+      final response = await dio.post(
+        '$baseUrl/auth/createadmin',
+        data: {
+          'name': name,
+          'email': email,
+          'password': password,
+        },
+        options: Options(
+          validateStatus: (status) => true,
+          followRedirects: false,
+          responseType: ResponseType.json,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        ),
+      );
+
+      print('Response status: ${response.statusCode}');
+      print('Response data: ${response.data}');
+
+      if (response.statusCode != 201) {
+        final error = response.data;
+        throw Exception(error['message'] ?? 'Registration failed');
+      }
+    } on DioError catch (e) {
+      print('Signup Error Details:');
+      print('Error Type: ${e.type}');
+      print('Error Message: ${e.message}');
+      print('Base URL: $baseUrl');
+      print('Error Response: ${e.response?.data}');
+
+      if (e.response?.statusCode == 400) {
+        // Handle specific error cases from your backend
+        final errorMessage = e.response?.data['message'] ?? 'Email already in use';
+        throw Exception(errorMessage);
+      }
+
+      throw Exception('Registration failed: ${e.message}');
+    } catch (e) {
+      print('Unexpected error during signup: $e');
+      throw Exception('An unexpected error occurred during registration');
+    }
+  }
   Future<DashboardStats> getDashboardStats(String token) async {
     try {
       dio.options.headers['authorization'] = 'Bearer $token';
@@ -156,4 +205,26 @@ class ApiService {
     }
   }
 
+  Future<String> requestPasswordReset(String email) async {
+    final response = await dio.post('/auth/forgot-password', data: {
+      'email': email,
+    });
+    return response.data['resetToken'];
+  }
+
+  Future<String> verifyResetCode(String resetToken, String code) async {
+    final response = await dio.post('/auth/verify-reset-code', data: {
+      'resetToken': resetToken,
+      'code': code,
+    });
+    return response.data['verifiedToken'];
+  }
+
+  Future<void> resetPassword(String verifiedToken, String newPassword) async {
+    await dio.post('/auth/reset-password', data: {
+      'verifiedToken': verifiedToken,
+      'newPassword': newPassword,
+    });
+  }
 }
+
